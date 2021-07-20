@@ -221,6 +221,7 @@ class ScanscreenState extends State<Scanscreen> {
               break;
             }
           }
+          // TODO: sendtoserver() 성공적으로 전송이 될 때만 업데이트.
           await DBHelper().updateLastUpdate(
               peripheral.identifier, DateTime.now().toLocal());
           setState(() {
@@ -230,7 +231,6 @@ class ScanscreenState extends State<Scanscreen> {
               ' 총(개) : ' +
               deviceList[index].logDatas.length.toString());
 
-          // TODO: sendtoserver()
           setState(() {
             deviceList[index].connectionState = 'end';
             resultText = '[' +
@@ -245,15 +245,20 @@ class ScanscreenState extends State<Scanscreen> {
         final BleError temperrors = error;
         if (temperrors.errorCode.value == 201) {
           print('그르게');
-        }
-        int index = -1;
-        for (var i = 0; i < deviceList.length; i++) {
-          if (deviceList[i].peripheral.identifier == peripheral.identifier) {
-            index = i;
-            break;
+          int index = -1;
+          for (var i = 0; i < deviceList.length; i++) {
+            if (deviceList[i].peripheral.identifier == peripheral.identifier) {
+              index = i;
+              break;
+            }
+          }
+          if (index != -1) {
+            setState(() {
+              deviceList[index].connectionState = 'scan';
+            });
+            print(deviceList[index].connectionState);
           }
         }
-        if (index != -1) deviceList[index].connectionState = 'scan';
 
         print("Error while monitoring characteristic \n$error");
       },
@@ -472,7 +477,7 @@ class ScanscreenState extends State<Scanscreen> {
           //페이지 갱신용
           setState(() {});
         }, onError: (error) {
-          print(error.toString());
+          print('스캔 중지당함');
           _bleManager.stopPeripheralScan();
         });
       }
@@ -519,7 +524,11 @@ class ScanscreenState extends State<Scanscreen> {
     bool goodConnection = false;
     if (_connected) {
       //이미 연결상태면 연결 해제후 종료
-      await _curPeripheral?.disconnectOrCancelConnection();
+      print('mmmmmmm 여기냐 설마 ?? mmmmmmmmm');
+      // await _curPeripheral?.disconnectOrCancelConnection();
+      setState(() {
+        deviceList[index].connectionState = 'scan';
+      });
       return false;
     }
 
@@ -532,7 +541,7 @@ class ScanscreenState extends State<Scanscreen> {
       await DBHelper().createData(DeviceInfo(
           macAddress: peripheral.identifier,
           // Init Time - 10일 전
-          lastUpdate: DateTime.now().toLocal().subtract(Duration(days: 10))));
+          lastUpdate: DateTime.now().toLocal().subtract(Duration(days: 30))));
     } else {
       setState(() {
         deviceList[index].lastUpdateTime = temp.lastUpdate.toLocal();
@@ -542,20 +551,22 @@ class ScanscreenState extends State<Scanscreen> {
       print('Last Update Time1 : ' + temp.lastUpdate.toString());
       // TODO: 시간 수정(3개) 필수 !
       print('Enable Time1 : ' +
-          DateTime.now().toLocal().subtract(Duration(minutes: 5)).toString());
+          DateTime.now().toLocal().subtract(Duration(minutes: 2)).toString());
       if (temp.lastUpdate
-          .isBefore(DateTime.now().toLocal().subtract(Duration(minutes: 5)))) {
+          .isBefore(DateTime.now().toLocal().subtract(Duration(minutes: 2)))) {
+        // deviceList[index].connectionState = 'connecting';
       } else {
         print('아직 시간이 안됨 !');
-        print('Last Update Time : ' + temp.lastUpdate.toString());
-        print('Enable Time : ' +
-            DateTime.now().toLocal().subtract(Duration(minutes: 5)).toString());
-        deviceList.last.connectionState = 'scan';
+        // print('Last Update Time : ' + temp.lastUpdate.toString());
+        // print('Enable Time : ' +
+        //     DateTime.now().toLocal().subtract(Duration(minutes: 2)).toString());
+        setState(() {
+          deviceList[index].connectionState = 'scan';
+        });
         return;
       }
     }
-    deviceList.last.connectionState = 'connecting';
-
+    print(deviceList[index].getserialNumber() + ' : Connection Start\n');
     //해당 장치와의 연결상태를 관촬하는 리스너 실행
     peripheral
         .observeConnectionState(emitCurrentValue: false)
@@ -652,7 +663,7 @@ class ScanscreenState extends State<Scanscreen> {
       //연결 시작!
       await peripheral
           .connect(
-        isAutoConnect: true,
+        isAutoConnect: false,
       )
           .then((_) {
         this._curPeripheral = peripheral;
@@ -727,7 +738,7 @@ class ScanscreenState extends State<Scanscreen> {
                 color: deviceList[index].lastUpdateTime == null ||
                         deviceList[index].lastUpdateTime.isBefore(DateTime.now()
                             .toLocal()
-                            .subtract(Duration(minutes: 5)))
+                            .subtract(Duration(minutes: 2)))
                     ? Color.fromRGBO(0x61, 0xB2, 0xD0, 1)
                     : Colors.white,
                 boxShadow: [customeBoxShadow()],
