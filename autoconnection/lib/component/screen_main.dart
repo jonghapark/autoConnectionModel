@@ -103,11 +103,12 @@ class ScanscreenState extends State<Scanscreen> {
     setState(() {});
   }
 
+  // TODO: 관선님 이부분 서버 전송부분인데 여기 수정하시면 될 것 같습니다.
   Future<Post> sendtoServer(Data data) async {
     var client = http.Client();
     try {
       var uriResponse =
-          await client.post('http://175.126.232.236/_API/saveData.php', body: {
+          await client.post('http://175.126.232.236:9981/', body: {
         "isRegularData": "true",
         "tra_datetime": data.time,
         "tra_temp": data.temper,
@@ -221,7 +222,26 @@ class ScanscreenState extends State<Scanscreen> {
               break;
             }
           }
+          Data sendData = new Data(
+            battery: '',
+            deviceName: 'Sensor_' + deviceList[index].getserialNumber(),
+            humi: '',
+            temper: deviceList[index].getTemperature().toString(),
+            lat: '',
+            lng: '',
+            time: new DateTime.now().toLocal().toString(),
+            lex: '',
+          );
+          // 전송 시작
+          print('전송 시작');
+          Post temp = await sendtoServer(sendData);
+
+          // 전송 결과
+          print(temp.body);
+
           // TODO: sendtoserver() 성공적으로 전송이 될 때만 업데이트.
+
+          // 최근 업로드 기록 업데이트
           await DBHelper().updateLastUpdate(
               peripheral.identifier, DateTime.now().toLocal());
           setState(() {
