@@ -104,21 +104,24 @@ class ScanscreenState extends State<Scanscreen> {
   }
 
   // TODO: 관선님 이부분 서버 전송부분인데 여기 수정하시면 될 것 같습니다.
-  Future<Post> sendtoServer(Data data) async {
+  Future<Post> sendtoServer(List<LogData> list, String devicename) async {
     Socket socket = await Socket.connect('175.126.232.236', 9981);
-    String body = '';
-    body += data.deviceName +
-        '|0|' +
-        data.time +
-        '|' +
-        data.time +
-        '|N|0|E|0|' +
-        data.temper +
-        '|' +
-        data.humi +
-        '|0|0|0|0;';
-    print('connected server & Send to server');
-    socket.write(body);
+    for (int i = 0; i < list.length; i++) {
+      String body = '';
+      body += devicename +
+          '|0|' +
+          list[i].timestamp.toString() +
+          '|' +
+          list[i].timestamp.toString() +
+          '|N|0|E|0|' +
+          list[i].temperature.toString() +
+          '|' +
+          list[i].humidity.toString() +
+          '|0|0|0|0;';
+      print('connected server & Send to server');
+      socket.write(body);
+    }
+
     socket.close();
     // try {
     //   var uriResponse =
@@ -229,19 +232,20 @@ class ScanscreenState extends State<Scanscreen> {
             }
           }
 
-          Data sendData = new Data(
-            battery: '',
-            deviceName: 'Sensor_' + deviceList[index].getserialNumber(),
-            humi: '',
-            temper: deviceList[index].getTemperature().toString(),
-            lat: '',
-            lng: '',
-            time: new DateTime.now().toLocal().toString(),
-            lex: '',
-          );
+          // Data sendData = new Data(
+          //   battery: '',
+          //   deviceName: 'Sensor_' + deviceList[index].getserialNumber(),
+          //   humi: '',
+          //   temper: deviceList[index].getTemperature().toString(),
+          //   lat: '',
+          //   lng: '',
+          //   time: new DateTime.now().toLocal().toString(),
+          //   lex: '',
+          // );
           // 전송 시작
           print('전송 시작');
-          Post temp = await sendtoServer(sendData);
+          Post temp = await sendtoServer(deviceList[index].logDatas,
+              'Sensor_' + deviceList[index].getserialNumber());
 
           // 전송 결과
           // print(temp.body);
