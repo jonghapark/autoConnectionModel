@@ -105,29 +105,35 @@ class ScanscreenState extends State<Scanscreen> {
 
   // TODO: 관선님 이부분 서버 전송부분인데 여기 수정하시면 될 것 같습니다.
   Future<Post> sendtoServer(Data data) async {
-    var client = http.Client();
-    try {
-      var uriResponse =
-          await client.post('http://175.126.232.236:9981/', body: {
-        "isRegularData": "true",
-        "tra_datetime": data.time,
-        "tra_temp": data.temper,
-        "tra_humidity": data.humi,
-        "tra_lat": data.lat,
-        "tra_lon": data.lng,
-        "de_number": data.deviceName,
-        "tra_battery": data.battery,
-        "tra_impact": data.lex
-      });
+    Socket socket = await Socket.connect('175.126.232.236', 9981);
+    String body = '';
+    body += data.deviceName +
+        '|0|' +
+        data.time +
+        '|' +
+        data.time +
+        '|N|0|E|0|' +
+        data.temper +
+        '|' +
+        data.humi +
+        '|0|0|0|0;';
+    print('connected server & Send to server');
+    socket.write(body);
+    socket.close();
+    // try {
+    //   var uriResponse =
+    //       await client.post('http://175.126.232.236:9981/', body: {
+    //     "OPSI3997771|0|2019-09-05 05:33:58|2019-09-05 05:33:59|N|37.236982|E|126.581735|27.435112|66.114288|254|-1023|-139|30;"
+    //   });
 
-      // print(await client.get(uriResponse.body.['uri']));
-    } catch (e) {
-      print(e);
-      return null;
-    } finally {
-      print('send !');
-      client.close();
-    }
+    //   // print(await client.get(uriResponse.body.['uri']));
+    // } catch (e) {
+    //   print(e);
+    //   return null;
+    // } finally {
+    //   print('send !');
+    //   client.close();
+    // }
   }
 
   Future<void> monitorCharacteristic(BleDeviceItem device, flag) async {
@@ -222,6 +228,7 @@ class ScanscreenState extends State<Scanscreen> {
               break;
             }
           }
+
           Data sendData = new Data(
             battery: '',
             deviceName: 'Sensor_' + deviceList[index].getserialNumber(),
@@ -237,7 +244,7 @@ class ScanscreenState extends State<Scanscreen> {
           Post temp = await sendtoServer(sendData);
 
           // 전송 결과
-          print(temp.body);
+          // print(temp.body);
 
           // TODO: sendtoserver() 성공적으로 전송이 될 때만 업데이트.
 
@@ -571,15 +578,15 @@ class ScanscreenState extends State<Scanscreen> {
       print('Last Update Time1 : ' + temp.lastUpdate.toString());
       // TODO: 시간 수정(3개) 필수 !
       print('Enable Time1 : ' +
-          DateTime.now().toLocal().subtract(Duration(minutes: 2)).toString());
+          DateTime.now().toLocal().subtract(Duration(minutes: 5)).toString());
       if (temp.lastUpdate
-          .isBefore(DateTime.now().toLocal().subtract(Duration(minutes: 2)))) {
+          .isBefore(DateTime.now().toLocal().subtract(Duration(minutes: 5)))) {
         // deviceList[index].connectionState = 'connecting';
       } else {
         print('아직 시간이 안됨 !');
         // print('Last Update Time : ' + temp.lastUpdate.toString());
         // print('Enable Time : ' +
-        //     DateTime.now().toLocal().subtract(Duration(minutes: 2)).toString());
+        //     DateTime.now().toLocal().subtract(Duration(minutes: 5)).toString());
         setState(() {
           deviceList[index].connectionState = 'scan';
         });
@@ -758,7 +765,7 @@ class ScanscreenState extends State<Scanscreen> {
                 color: deviceList[index].lastUpdateTime == null ||
                         deviceList[index].lastUpdateTime.isBefore(DateTime.now()
                             .toLocal()
-                            .subtract(Duration(minutes: 2)))
+                            .subtract(Duration(minutes: 5)))
                     ? Color.fromRGBO(0x61, 0xB2, 0xD0, 1)
                     : Colors.white,
                 boxShadow: [customeBoxShadow()],
