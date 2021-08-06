@@ -23,7 +23,7 @@ class BleDeviceItem {
             this.advertisementData.manufacturerData.sublist(12, 14))
         .getInt16(0, Endian.big);
     // print(tmp);
-    lastUpdateTime = DateTime.now();
+    // lastUpdateTime = DateTime.now();
     return tmp / 100;
   }
 
@@ -38,7 +38,7 @@ class BleDeviceItem {
   getBattery() {
     int tmp = ByteData.sublistView(
             this.advertisementData.manufacturerData.sublist(16, 17))
-        .getInt8(0);
+        .getUint8(0);
     return tmp;
   }
 

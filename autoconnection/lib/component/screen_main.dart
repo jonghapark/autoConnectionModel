@@ -77,6 +77,7 @@ class ScanscreenState extends State<Scanscreen> {
 
     super.initState();
     // getCurrentLocation();
+    startTimer();
     Wakelock.enable();
     currentDeviceName = '';
     currentTemp = '-';
@@ -103,34 +104,58 @@ class ScanscreenState extends State<Scanscreen> {
     setState(() {});
   }
 
-  // TODO: 관선님 이부분 서버 전송부분인데 여기 수정하시면 될 것 같습니다.
-  Future<Post> sendtoServer(List<LogData> list, String devicename) async {
+  Future<String> sendtoServer(
+      List<LogData> list, String devicename, int battery) async {
+    // var client = http.Client();
+    // print(socket.port);
     Socket socket = await Socket.connect('175.126.232.236', 9981);
-    for (int i = 0; i < list.length; i++) {
-      String body = '';
-      body += devicename +
-          '|0|' +
-          list[i].timestamp.toString() +
-          '|' +
-          list[i].timestamp.toString() +
-          '|N|0|E|0|' +
-          list[i].temperature.toString() +
-          '|' +
-          list[i].humidity.toString() +
-          '|0|0|0|0;';
-      print('connected server & Send to server');
-      socket.write(body);
+    print('port Number');
+    print(socket.port);
+    if (socket != null) {
+      for (int i = 0; i < list.length; i += 5) {
+        String body = '';
+        body += devicename +
+            '|0|' +
+            list[i].timestamp.toString() +
+            '|' +
+            list[i].timestamp.toString() +
+            '|N|0|E|0|' +
+            list[i].temperature.toString() +
+            '|' +
+            list[i].humidity.toString() +
+            '|0|0|0|' +
+            battery.toString() +
+            ';';
+
+        socket.write(body);
+      }
+      print('connected server & Sended to server');
+      socket.close();
+      return 'success';
+    } else {
+      print('Fail Send to Server');
+      return 'fail';
     }
 
-    socket.close();
     // try {
-    //   var uriResponse =
-    //       await client.post('http://175.126.232.236:9981/', body: {
-    //     "OPSI3997771|0|2019-09-05 05:33:58|2019-09-05 05:33:59|N|37.236982|E|126.581735|27.435112|66.114288|254|-1023|-139|30;"
-    //   });
-
-    //   // print(await client.get(uriResponse.body.['uri']));
+    //   for (int i = 0; i < list.length; i++) {
+    //     print('$i send');
+    //     var uriResponse = await client
+    //         .post('http://175.126.232.236/_API/saveData.php', body: {
+    //       "isRegularData": "true",
+    //       "tra_datetime": list[i].timestamp.toString(),
+    //       "tra_temp": list[i].temperature.toString(),
+    //       "tra_humidity": list[i].humidity.toString(),
+    //       "tra_lat": "",
+    //       "tra_lon": "",
+    //       "de_number": devicename,
+    //       "tra_battery": battery.toString(),
+    //       "tra_impact": ""
+    //     });
+    //     print(await client.get(uriResponse.body.toString()));
+    //   }
     // } catch (e) {
+    //   print('HTTP에러발생에러발생에러발생에러발생에러발생에러발생');
     //   print(e);
     //   return null;
     // } finally {
@@ -191,14 +216,25 @@ class ScanscreenState extends State<Scanscreen> {
           if (index != -1) {
             Uint8List minmaxStamp = getMinMaxTimestamp(notifyResult);
             deviceList[index].logDatas.clear();
-            var writeCharacteristics = await peripheral.writeCharacteristic(
-                '00001000-0000-1000-8000-00805f9b34fb',
-                '00001001-0000-1000-8000-00805f9b34fb',
-                Uint8List.fromList([0x55, 0xAA, 0x01, 0x05] +
-                    deviceList[index].getMacAddress() +
-                    [0x04, 0x06] +
-                    minmaxStamp),
-                true);
+            if (peripheral.name == 'T301') {
+              var writeCharacteristics = await peripheral.writeCharacteristic(
+                  '00001000-0000-1000-8000-00805f9b34fb',
+                  '00001001-0000-1000-8000-00805f9b34fb',
+                  Uint8List.fromList([0x55, 0xAA, 0x01, 0x05] +
+                      deviceList[index].getMacAddress() +
+                      [0x04, 0x06] +
+                      minmaxStamp),
+                  true);
+            } else if (peripheral.name == 'T306') {
+              var writeCharacteristics = await peripheral.writeCharacteristic(
+                  '00001000-0000-1000-8000-00805f9b34fb',
+                  '00001001-0000-1000-8000-00805f9b34fb',
+                  Uint8List.fromList([0x55, 0xAA, 0x01, 0x06] +
+                      deviceList[index].getMacAddress() +
+                      [0x04, 0x06] +
+                      minmaxStamp),
+                  true);
+            }
           }
         }
         if (notifyResult[10] == 0x05) {
@@ -244,32 +280,53 @@ class ScanscreenState extends State<Scanscreen> {
           // );
           // 전송 시작
           print('전송 시작');
-          Post temp = await sendtoServer(deviceList[index].logDatas,
-              'Sensor_' + deviceList[index].getserialNumber());
+          String result = await sendtoServer(
+              deviceList[index].logDatas,
+              'SENSOR_' + deviceList[index].getserialNumber(),
+              deviceList[index].getBattery());
 
           // 전송 결과
           // print(temp.body);
-
           // TODO: sendtoserver() 성공적으로 전송이 될 때만 업데이트.
-
+          print('ㅡㅡㅡㅡㅡㅡㅡㅡ : ' + result);
           // 최근 업로드 기록 업데이트
-          await DBHelper().updateLastUpdate(
-              peripheral.identifier, DateTime.now().toLocal());
-          setState(() {
-            deviceList[index].lastUpdateTime = DateTime.now().toLocal();
-          });
-          print(deviceList[index].getserialNumber() +
-              ' 총(개) : ' +
-              deviceList[index].logDatas.length.toString());
+          if (result == 'success') {
+            await DBHelper().updateLastUpdate(
+                peripheral.identifier, DateTime.now().toLocal());
+            print('실행 ? ? ?');
+            setState(() {
+              deviceList[index].lastUpdateTime = DateTime.now().toLocal();
+            });
+            //            6 -> 2
+            // 10 -> 2
+            // 20 -> 4
+            // 18 -> 4
+            // 0 5 10 15 20
+            int sendCount = 0;
+            if (deviceList[index].logDatas.length % 5 == 0) {
+              sendCount = deviceList[index].logDatas.length ~/ 5;
+            } else {
+              sendCount = (deviceList[index].logDatas.length ~/ 5) + 1;
+            }
 
-          setState(() {
-            deviceList[index].connectionState = 'end';
-            resultText = '[' +
-                deviceList[index].getserialNumber() +
-                '] ' +
-                deviceList[index].logDatas.length.toString() +
-                ' 개(분) 전송 완료';
-          });
+            print(deviceList[index].getserialNumber() +
+                ' 총(개) : ' +
+                sendCount.toString());
+
+            setState(() {
+              deviceList[index].connectionState = 'end';
+              resultText = '[' +
+                  deviceList[index].getserialNumber() +
+                  '] ' +
+                  sendCount.toString() +
+                  ' 개(분) 전송 완료';
+            });
+          } else {
+            setState(() {
+              resultText = '[전송 실패] 네트워크 상태를 확인해주세요 !!';
+              deviceList[index].connectionState = 'scan';
+            });
+          }
         }
       },
       onError: (error) {
@@ -314,27 +371,52 @@ class ScanscreenState extends State<Scanscreen> {
     Uint8List macaddress = deviceList[index].getMacAddress();
     print('쓰기 시작 ');
     if (flag == 0) {
-      var writeCharacteristics = await deviceList[index]
-          .peripheral
-          .writeCharacteristic(
-              '00001000-0000-1000-8000-00805f9b34fb',
-              '00001001-0000-1000-8000-00805f9b34fb',
-              Uint8List.fromList([0x55, 0xAA, 0x01, 0x05] +
-                  deviceList[index].getMacAddress() +
-                  [0x02, 0x04] +
-                  timestamp),
-              true);
+      if (deviceList[index].peripheral.name == 'T301') {
+        var writeCharacteristics = await deviceList[index]
+            .peripheral
+            .writeCharacteristic(
+                '00001000-0000-1000-8000-00805f9b34fb',
+                '00001001-0000-1000-8000-00805f9b34fb',
+                Uint8List.fromList([0x55, 0xAA, 0x01, 0x05] +
+                    deviceList[index].getMacAddress() +
+                    [0x02, 0x04] +
+                    timestamp),
+                true);
+      } else if (deviceList[index].peripheral.name == 'T306') {
+        var writeCharacteristics = await deviceList[index]
+            .peripheral
+            .writeCharacteristic(
+                '00001000-0000-1000-8000-00805f9b34fb',
+                '00001001-0000-1000-8000-00805f9b34fb',
+                Uint8List.fromList([0x55, 0xAA, 0x01, 0x06] +
+                    deviceList[index].getMacAddress() +
+                    [0x02, 0x04] +
+                    timestamp),
+                true);
+      }
     } else if (flag == 1) {
       // 데이터 삭제 시작
-      var writeCharacteristics = await deviceList[index]
-          .peripheral
-          .writeCharacteristic(
-              '00001000-0000-1000-8000-00805f9b34fb',
-              '00001001-0000-1000-8000-00805f9b34fb',
-              Uint8List.fromList([0x55, 0xAA, 0x01, 0x05] +
-                  deviceList[index].getMacAddress() +
-                  [0x09, 0x01, 0x01]),
-              true);
+      if (deviceList[index].peripheral.name == 'T301') {
+        var writeCharacteristics = await deviceList[index]
+            .peripheral
+            .writeCharacteristic(
+                '00001000-0000-1000-8000-00805f9b34fb',
+                '00001001-0000-1000-8000-00805f9b34fb',
+                Uint8List.fromList([0x55, 0xAA, 0x01, 0x05] +
+                    deviceList[index].getMacAddress() +
+                    [0x09, 0x01, 0x01]),
+                true);
+      } else if (deviceList[index].peripheral.name == 'T306') {
+        var writeCharacteristics = await deviceList[index]
+            .peripheral
+            .writeCharacteristic(
+                '00001000-0000-1000-8000-00805f9b34fb',
+                '00001001-0000-1000-8000-00805f9b34fb',
+                Uint8List.fromList([0x55, 0xAA, 0x01, 0x06] +
+                    deviceList[index].getMacAddress() +
+                    [0x09, 0x01, 0x01]),
+                true);
+      }
     }
   }
 
@@ -342,7 +424,8 @@ class ScanscreenState extends State<Scanscreen> {
   // 00:00:00
   void startTimer() {
     if (isStart == true) return;
-    const oneSec = const Duration(seconds: 15);
+    const oneSec = const Duration(minutes: 30);
+    const fiveSec = const Duration(seconds: 5);
     _timer = new Timer.periodic(
       oneSec,
       (Timer timer) => setState(
@@ -350,32 +433,30 @@ class ScanscreenState extends State<Scanscreen> {
           if (isStart == false) isStart = true;
           _start = _start + 1;
           // if (_start % 5 == 0) {
-          print(_start);
-          _checkPermissions();
+          print('현재 몇번 돌았니 ? -> ' + _start.toString());
+          _bleManager.stopPeripheralScan();
+          Timer temp = new Timer.periodic(
+            fiveSec,
+            (Timer timer) => setState(
+              () {
+                // if (_start % 5 == 0) {
+
+                _stopMonitoringTemperature();
+                setState(() {
+                  _isScanning = false;
+                });
+                scan();
+                timer.cancel();
+              },
+            ),
+          );
+
+          _bleManager.stopPeripheralScan();
+          _isScanning = false;
+          scan();
         },
       ),
     );
-  }
-
-  Future<Post> sendData(Data data) async {
-    var client = http.Client();
-    try {
-      var uriResponse =
-          await client.post('http://175.126.232.236/_API/saveData.php', body: {
-        "isRegularData": "true",
-        "tra_datetime": data.time,
-        "tra_temp": data.temper,
-        "tra_humidity": data.humi,
-        "tra_lat": data.lat,
-        "tra_lon": data.lng,
-        "de_number": data.deviceName,
-        "tra_battery": data.battery,
-        "tra_impact": data.lex
-      });
-      // print(await client.get(uriResponse.body.['uri']));
-    } finally {
-      client.close();
-    }
   }
 
   // BLE 초기화 함수
@@ -416,12 +497,13 @@ class ScanscreenState extends State<Scanscreen> {
     }
   }
 
-  // 1. 엑셀 2. 서버구조 3. 영어 과제
   //scan 함수
   void scan() async {
     if (!_isScanning) {
       print('스캔시작');
-      deviceList.clear(); //기존 장치 리스트 초기화
+      setState(() {
+        deviceList.clear(); //기존 장치 리스트 초기화
+      });
       //SCAN 시작
       if (Platform.isAndroid) {
         _bleManager.startPeripheralScan(scanMode: ScanMode.lowLatency).listen(
@@ -485,7 +567,8 @@ class ScanscreenState extends State<Scanscreen> {
               // if (name.substring(0, 3) == 'IOT') {
               if (name != null) {
                 if (name.length > 3) {
-                  if (name.substring(0, 4) == 'T301') {
+                  if (name.substring(0, 4) == 'T301' ||
+                      name.substring(0, 4) == 'T306') {
                     BleDeviceItem currentItem = new BleDeviceItem(
                         name,
                         scanResult.rssi,
@@ -494,7 +577,6 @@ class ScanscreenState extends State<Scanscreen> {
                         'scan');
                     print(currentItem.peripheral.identifier);
                     print('인 !');
-
                     deviceList.add(currentItem);
 
                     connect(deviceList.length - 1, 0);
@@ -522,12 +604,12 @@ class ScanscreenState extends State<Scanscreen> {
       //
       // //스캔중이었으면 스캔 중지
       // // TODO: 일단 주석!
-      // _bleManager.stopPeripheralScan();
-      // setState(() {
-      //   //BLE 상태가 변경되면 페이지도 갱신
-      //   _isScanning = false;
-      //   setBLEState('Stop Scan');
-      // });
+      _bleManager.stopPeripheralScan();
+      setState(() {
+        //BLE 상태가 변경되면 페이지도 갱신
+        _isScanning = false;
+        setBLEState('Stop Scan');
+      });
     }
   }
 
@@ -553,15 +635,15 @@ class ScanscreenState extends State<Scanscreen> {
   //연결 함수
   connect(index, flag) async {
     bool goodConnection = false;
-    if (_connected) {
-      //이미 연결상태면 연결 해제후 종료
-      print('mmmmmmm 여기냐 설마 ?? mmmmmmmmm');
-      // await _curPeripheral?.disconnectOrCancelConnection();
-      setState(() {
-        deviceList[index].connectionState = 'scan';
-      });
-      return false;
-    }
+    // if (_connected) {
+    //   //이미 연결상태면 연결 해제후 종료
+    //   print('mmmmmmm 여기냐 설마 ?? mmmmmmmmm');
+    //   await _curPeripheral?.disconnectOrCancelConnection();
+    //   setState(() {
+    //     deviceList[index].connectionState = 'scan';
+    //   });
+    //   return false;
+    // }
 
     //선택한 장치의 peripheral 값을 가져온다.
     Peripheral peripheral = deviceList[index].peripheral;
@@ -572,25 +654,30 @@ class ScanscreenState extends State<Scanscreen> {
       await DBHelper().createData(DeviceInfo(
           macAddress: peripheral.identifier,
           // Init Time - 10일 전
-          lastUpdate: DateTime.now().toLocal().subtract(Duration(days: 30))));
+          lastUpdate: DateTime.now().toLocal().subtract(Duration(days: 300))));
+      setState(() {
+        deviceList[index].lastUpdateTime = null;
+      });
     } else {
+      print('Else 문 ?');
       setState(() {
         deviceList[index].lastUpdateTime = temp.lastUpdate.toLocal();
       });
 
+      print(temp.lastUpdate.toLocal().toString());
       print('이미존재함 : ' + deviceList[index].getserialNumber());
       print('Last Update Time1 : ' + temp.lastUpdate.toString());
       // TODO: 시간 수정(3개) 필수 !
       print('Enable Time1 : ' +
-          DateTime.now().toLocal().subtract(Duration(minutes: 5)).toString());
+          DateTime.now().toLocal().subtract(Duration(minutes: 10)).toString());
       if (temp.lastUpdate
-          .isBefore(DateTime.now().toLocal().subtract(Duration(minutes: 5)))) {
+          .isBefore(DateTime.now().toLocal().subtract(Duration(minutes: 10)))) {
         // deviceList[index].connectionState = 'connecting';
       } else {
         print('아직 시간이 안됨 !');
         // print('Last Update Time : ' + temp.lastUpdate.toString());
         // print('Enable Time : ' +
-        //     DateTime.now().toLocal().subtract(Duration(minutes: 5)).toString());
+        //     DateTime.now().toLocal().subtract(Duration(minutes: 10)).toString());
         setState(() {
           deviceList[index].connectionState = 'scan';
         });
@@ -769,7 +856,7 @@ class ScanscreenState extends State<Scanscreen> {
                 color: deviceList[index].lastUpdateTime == null ||
                         deviceList[index].lastUpdateTime.isBefore(DateTime.now()
                             .toLocal()
-                            .subtract(Duration(minutes: 5)))
+                            .subtract(Duration(minutes: 10)))
                     ? Color.fromRGBO(0x61, 0xB2, 0xD0, 1)
                     : Colors.white,
                 boxShadow: [customeBoxShadow()],
@@ -797,6 +884,10 @@ class ScanscreenState extends State<Scanscreen> {
                               children: [
                                 Text(deviceList[index].getserialNumber(),
                                     style: boldTextStyle),
+
+                                // Text(deviceList[index]
+                                //     .lastUpdateTime
+                                //     .toString()),
                                 // Image(
                                 //   image: AssetImage('images/T301.png'),
                                 //   fit: BoxFit.contain,
@@ -805,26 +896,70 @@ class ScanscreenState extends State<Scanscreen> {
                                 //   height:
                                 //       MediaQuery.of(context).size.width * 0.10,
                                 // ),
-
+                                deviceList[index].lastUpdateTime == null ||
+                                        deviceList[index]
+                                            .lastUpdateTime
+                                            .isBefore(DateTime.now()
+                                                .toLocal()
+                                                .subtract(Duration(days: 200)))
+                                    ? Text('최근 업로드 시간 : --일 --:--:--',
+                                        style: lastUpdateTextStyle(context))
+                                    : Text(
+                                        '최근 업로드 시간 : ' +
+                                            DateFormat('d일 HH:mm:ss').format(
+                                                deviceList[index]
+                                                    .lastUpdateTime),
+                                        style: lastUpdateTextStyle(context),
+                                      ),
+                              ],
+                            ),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceAround,
+                              children: [
                                 Text(
                                     strMapper(
                                         deviceList[index].connectionState),
                                     style: strMapper(deviceList[index]
                                                 .connectionState) ==
                                             '대기 중'
-                                        ? boldTextStyle
+                                        ? noboldTextStyle
                                         : redBoldTextStyle),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Image(
+                                      image: AssetImage(
+                                          'images/ic_thermometer.png'),
+                                      fit: BoxFit.contain,
+                                      width: MediaQuery.of(context).size.width *
+                                          0.05,
+                                      // height: MediaQuery.of(context).size.width * 0.1,
+                                    ),
+                                    Text(
+                                      deviceList[index]
+                                              .getTemperature()
+                                              .toString() +
+                                          '°C ',
+                                      style: noboldTextStyle,
+                                    ),
+                                  ],
+                                ),
+                                Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      getbatteryImage(
+                                          deviceList[index].getBattery()),
+                                      Text(
+                                        '  ' +
+                                            deviceList[index]
+                                                .getBattery()
+                                                .toString() +
+                                            '%',
+                                        style: noboldTextStyle,
+                                      ),
+                                    ]),
                               ],
                             ),
-                            deviceList[index].lastUpdateTime == null
-                                ? Text('최근 업로드 시간 : --일 --:--:--',
-                                    style: lastUpdateTextStyle(context))
-                                : Text(
-                                    '최근 업로드 시간 : ' +
-                                        DateFormat('dd일 HH:mm:ss').format(
-                                            deviceList[index].lastUpdateTime),
-                                    style: lastUpdateTextStyle(context),
-                                  ),
                           ],
                         )),
                   )),
@@ -857,37 +992,50 @@ class ScanscreenState extends State<Scanscreen> {
           //canvasColor: Colors.transparent,
         ),
         home: Scaffold(
-          appBar: AppBar(
-              // backgroundColor: Color.fromARGB(22, 27, 32, 1),
-              title: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                flex: 8,
-                child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-                  Text(
-                    'Thermo Cert',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                        fontSize: MediaQuery.of(context).size.width / 18,
-                        fontWeight: FontWeight.w600),
-                  ),
-                ]),
-              ),
-              Expanded(
-                  flex: 4,
-                  child:
-                      Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-                    new IconButton(
-                      icon: new Icon(Icons.add, size: 30),
-                      onPressed: () {
-                        // addDeviceDialog(context);
-                      },
-                    )
-                  ])),
-            ],
-          )),
+          appBar: PreferredSize(
+              preferredSize: Size.fromHeight(75.0), // here the desired height
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  AppBar(
+                      // backgroundColor: Color.fromARGB(22, 27, 32, 1),
+                      title: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: Image(
+                          image: AssetImage('images/GC_logo.png'),
+                          fit: BoxFit.contain,
+                          width: MediaQuery.of(context).size.width * 0.13,
+                          // height: MediaQuery.of(context).size.width * 0.1,
+                        ),
+                      ),
+                      Expanded(
+                        flex: 5,
+                        child: Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              Text(
+                                'Auto Thermo',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                    color: Color.fromRGBO(255, 255, 255, 1),
+                                    fontSize:
+                                        MediaQuery.of(context).size.width / 18,
+                                    fontWeight: FontWeight.w600),
+                              ),
+                            ]),
+                      ),
+                      Expanded(
+                        flex: 4,
+                        child: SizedBox(),
+                      ),
+                    ],
+                  )),
+                ],
+              )),
           body: Container(
             width: MediaQuery.of(context).size.width,
             decoration: BoxDecoration(
@@ -898,23 +1046,15 @@ class ScanscreenState extends State<Scanscreen> {
             child: Column(
               children: <Widget>[
                 Expanded(
-                    flex: 9,
-                    child: Container(
-                        margin: EdgeInsets.only(
-                            top: MediaQuery.of(context).size.width * 0.035),
-                        width: MediaQuery.of(context).size.width * 0.97,
-                        // height:
-                        //     MediaQuery.of(context).size.width * 0.45,
-
-                        child: list()) //리스트 출력
-                    ),
-                Expanded(
-                    flex: 1,
+                    flex: 5,
                     child: Container(
                         color: Color.fromRGBO(200, 200, 200, 1),
+                        // padding: EdgeInsets.only(
+                        //   bottom: MediaQuery.of(context).size.width * 0.015,
+                        // ),
                         margin: EdgeInsets.only(
                           top: MediaQuery.of(context).size.width * 0.015,
-                          bottom: MediaQuery.of(context).size.width * 0.015,
+                          // bottom: MediaQuery.of(context).size.width * 0.015,
                         ),
                         // bottom: MediaQuery.of(context).size.width * 0.035),
                         width: MediaQuery.of(context).size.width * 0.97,
@@ -932,10 +1072,90 @@ class ScanscreenState extends State<Scanscreen> {
                           ],
                         )) //리스트 출력
                     ),
+                Expanded(
+                    flex: 40,
+                    child: Container(
+                        margin: EdgeInsets.only(
+                            top: MediaQuery.of(context).size.width * 0.035),
+                        width: MediaQuery.of(context).size.width * 0.97,
+                        // height:
+                        //     MediaQuery.of(context).size.width * 0.45,
+
+                        child: list()) //리스트 출력
+                    ),
+                Expanded(
+                    flex: 4,
+                    child: Container(
+                        // margin: EdgeInsets.only(
+                        //   top: MediaQuery.of(context).size.width * 0.015,
+                        //   bottom: MediaQuery.of(context).size.width * 0.01,
+                        // ),
+                        child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Image(
+                          image: AssetImage('images/background3.png'),
+                          fit: BoxFit.contain,
+                          width: MediaQuery.of(context).size.width * 0.12,
+                          // height: MediaQuery.of(context).size.width * 0.1,
+                        ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              '(주)옵티로',
+                              style: boldTextStyle2,
+                            ),
+                            Text(
+                              '인천광역시 연수구 송도미래로 30 스마트밸리 D동',
+                              style: thinSmallTextStyle,
+                            ),
+                            Text(
+                              'H : www.optilo.net  T : 070-5143-8585',
+                              style: thinSmallTextStyle,
+                            ),
+                          ],
+                        )
+                      ],
+                    )) //리스트 출력
+                    ),
               ],
             ),
           ),
         ));
+  }
+
+  Widget getbatteryImage(int battery) {
+    if (battery >= 75) {
+      return Image(
+        image: AssetImage('images/battery_100.png'),
+        fit: BoxFit.contain,
+        width: MediaQuery.of(context).size.width * 0.1,
+        height: MediaQuery.of(context).size.width * 0.1,
+      );
+    } else if (battery >= 50) {
+      return Image(
+        image: AssetImage('images/battery_75.png'),
+        fit: BoxFit.contain,
+        width: MediaQuery.of(context).size.width * 0.1,
+        height: MediaQuery.of(context).size.width * 0.1,
+      );
+    } else if (battery >= 35) {
+      return Image(
+        image: AssetImage('images/battery_50.png'),
+        fit: BoxFit.contain,
+        width: MediaQuery.of(context).size.width * 0.05,
+        height: MediaQuery.of(context).size.width * 0.05,
+      );
+    } else if (battery >= 15)
+      return Image(
+        image: AssetImage('images/battery_25.png'),
+        fit: BoxFit.contain,
+        width: MediaQuery.of(context).size.width * 0.1,
+        height: MediaQuery.of(context).size.width * 0.1,
+      );
   }
 
   TextStyle lastUpdateTextStyle(BuildContext context) {
@@ -959,10 +1179,20 @@ class ScanscreenState extends State<Scanscreen> {
     color: Color.fromRGBO(0xE0, 0x71, 0x51, 1),
     fontWeight: FontWeight.w900,
   );
-  TextStyle boldTextStyle = TextStyle(
-    fontSize: 22,
+  TextStyle boldTextStyle2 = TextStyle(
+    fontSize: 18,
     color: Color.fromRGBO(21, 21, 21, 1),
     fontWeight: FontWeight.w800,
+  );
+  TextStyle boldTextStyle = TextStyle(
+    fontSize: 24,
+    color: Color.fromRGBO(21, 21, 21, 1),
+    fontWeight: FontWeight.w800,
+  );
+  TextStyle noboldTextStyle = TextStyle(
+    fontSize: 26,
+    color: Color.fromRGBO(21, 21, 21, 1),
+    fontWeight: FontWeight.w700,
   );
   TextStyle bigTextStyle(BuildContext context) {
     return TextStyle(
@@ -972,6 +1202,11 @@ class ScanscreenState extends State<Scanscreen> {
     );
   }
 
+  TextStyle thinSmallTextStyle = TextStyle(
+    fontSize: 14,
+    color: Color.fromRGBO(21, 21, 21, 1),
+    fontWeight: FontWeight.w500,
+  );
   TextStyle thinTextStyle = TextStyle(
     fontSize: 22,
     color: Color.fromRGBO(244, 244, 244, 1),

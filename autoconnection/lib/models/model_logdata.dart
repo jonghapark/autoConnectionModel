@@ -58,7 +58,7 @@ class DBHelper {
     // print(device.macAddress);
     var res = await db.rawInsert(
         'INSERT INTO $TableName(mac, lastUpdate) VALUES(?,?)',
-        [device.macAddress, DateTime.now().toString()]);
+        [device.macAddress, device.lastUpdate.toString()]);
     return res;
   }
 
@@ -72,12 +72,15 @@ class DBHelper {
         ? DeviceInfo(
             macAddress: res.first['mac'],
             lastUpdate: DateTime.parse(res.first['lastUpdate']))
-        : DeviceInfo(macAddress: '123', lastUpdate: DateTime.now());
+        : DeviceInfo(
+            macAddress: '123',
+            lastUpdate: DateTime.now().toLocal().subtract(Duration(days: 300)));
   }
 
   //Update-name
   updateLastUpdate(String macAddress, DateTime lastUpdate) async {
     final db = await database;
+    print('lastUpdate !');
     var res = await db.rawUpdate(
         'UPDATE $TableName SET lastUpdate = ? WHERE mac = ?',
         [lastUpdate.toString(), macAddress.toUpperCase()]);
