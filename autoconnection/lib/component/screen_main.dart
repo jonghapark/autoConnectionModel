@@ -669,15 +669,15 @@ class ScanscreenState extends State<Scanscreen> {
       print('Last Update Time1 : ' + temp.lastUpdate.toString());
       // TODO: 시간 수정(3개) 필수 !
       print('Enable Time1 : ' +
-          DateTime.now().toLocal().subtract(Duration(minutes: 10)).toString());
+          DateTime.now().toLocal().subtract(Duration(hours: 6)).toString());
       if (temp.lastUpdate
-          .isBefore(DateTime.now().toLocal().subtract(Duration(minutes: 10)))) {
+          .isBefore(DateTime.now().toLocal().subtract(Duration(hours: 6)))) {
         // deviceList[index].connectionState = 'connecting';
       } else {
         print('아직 시간이 안됨 !');
         // print('Last Update Time : ' + temp.lastUpdate.toString());
         // print('Enable Time : ' +
-        //     DateTime.now().toLocal().subtract(Duration(minutes: 10)).toString());
+        //     DateTime.now().toLocal().subtract(Duration(hours: 6)).toString());
         setState(() {
           deviceList[index].connectionState = 'scan';
         });
@@ -856,7 +856,7 @@ class ScanscreenState extends State<Scanscreen> {
                 color: deviceList[index].lastUpdateTime == null ||
                         deviceList[index].lastUpdateTime.isBefore(DateTime.now()
                             .toLocal()
-                            .subtract(Duration(minutes: 10)))
+                            .subtract(Duration(hours: 6)))
                     ? Color.fromRGBO(0x61, 0xB2, 0xD0, 1)
                     : Colors.white,
                 boxShadow: [customeBoxShadow()],
@@ -945,6 +945,26 @@ class ScanscreenState extends State<Scanscreen> {
                                   ],
                                 ),
                                 Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Image(
+                                      image:
+                                          AssetImage('images/ic_humidity.png'),
+                                      fit: BoxFit.contain,
+                                      width: MediaQuery.of(context).size.width *
+                                          0.05,
+                                      // height: MediaQuery.of(context).size.width * 0.1,
+                                    ),
+                                    Text(
+                                      deviceList[index]
+                                              .getHumidity()
+                                              .toString() +
+                                          '% ',
+                                      style: noboldTextStyle,
+                                    ),
+                                  ],
+                                ),
+                                Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
                                       getbatteryImage(
@@ -988,143 +1008,156 @@ class ScanscreenState extends State<Scanscreen> {
         title: 'OPTILO',
         theme: ThemeData(
           // primarySwatch: Colors.grey,
-          primaryColor: Color.fromRGBO(0x61, 0xB2, 0xD0, 1),
+          primaryColor: Color.fromRGBO(0x4C, 0xA5, 0xC7, 1),
           //canvasColor: Colors.transparent,
         ),
         home: Scaffold(
-          appBar: PreferredSize(
-              preferredSize: Size.fromHeight(75.0), // here the desired height
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  AppBar(
-                      // backgroundColor: Color.fromARGB(22, 27, 32, 1),
-                      title: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Expanded(
-                        flex: 3,
-                        child: Image(
-                          image: AssetImage('images/GC_logo.png'),
-                          fit: BoxFit.contain,
-                          width: MediaQuery.of(context).size.width * 0.13,
-                          // height: MediaQuery.of(context).size.width * 0.1,
-                        ),
-                      ),
-                      Expanded(
-                        flex: 5,
-                        child: Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              Text(
-                                'Auto Thermo',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                    color: Color.fromRGBO(255, 255, 255, 1),
-                                    fontSize:
-                                        MediaQuery.of(context).size.width / 18,
-                                    fontWeight: FontWeight.w600),
-                              ),
-                            ]),
-                      ),
-                      Expanded(
-                        flex: 4,
-                        child: SizedBox(),
-                      ),
-                    ],
-                  )),
-                ],
-              )),
-          body: Container(
-            width: MediaQuery.of(context).size.width,
-            decoration: BoxDecoration(
-              color: Color.fromRGBO(240, 240, 240, 1),
-              boxShadow: [customeBoxShadow()],
-              //color: Color.fromRGBO(81, 97, 130, 1),
-            ),
-            child: Column(
-              children: <Widget>[
-                Expanded(
-                    flex: 5,
-                    child: Container(
-                        color: Color.fromRGBO(200, 200, 200, 1),
-                        // padding: EdgeInsets.only(
-                        //   bottom: MediaQuery.of(context).size.width * 0.015,
-                        // ),
-                        margin: EdgeInsets.only(
-                          top: MediaQuery.of(context).size.width * 0.015,
-                          // bottom: MediaQuery.of(context).size.width * 0.015,
-                        ),
-                        // bottom: MediaQuery.of(context).size.width * 0.035),
-                        width: MediaQuery.of(context).size.width * 0.97,
-                        // height:
-                        //     MediaQuery.of(context).size.width * 0.45,
-
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Text(
-                              resultText,
-                              style: boldTextStyle,
-                            ),
-                          ],
-                        )) //리스트 출력
-                    ),
-                Expanded(
-                    flex: 40,
-                    child: Container(
-                        margin: EdgeInsets.only(
-                            top: MediaQuery.of(context).size.width * 0.035),
-                        width: MediaQuery.of(context).size.width * 0.97,
-                        // height:
-                        //     MediaQuery.of(context).size.width * 0.45,
-
-                        child: list()) //리스트 출력
-                    ),
-                Expanded(
-                    flex: 4,
-                    child: Container(
-                        // margin: EdgeInsets.only(
-                        //   top: MediaQuery.of(context).size.width * 0.015,
-                        //   bottom: MediaQuery.of(context).size.width * 0.01,
-                        // ),
-                        child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+            appBar: PreferredSize(
+                preferredSize:
+                    Size.fromHeight(100.0), // here the desired height
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    AppBar(
+                        // backgroundColor: Color.fromARGB(22, 27, 32, 1),
+                        title: Row(
+                      mainAxisAlignment: MainAxisAlignment.start,
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        Image(
-                          image: AssetImage('images/background3.png'),
-                          fit: BoxFit.contain,
-                          width: MediaQuery.of(context).size.width * 0.12,
-                          // height: MediaQuery.of(context).size.width * 0.1,
+                        Expanded(
+                          flex: 5,
+                          child: Image(
+                            image: AssetImage('images/geo_young.png'),
+                            fit: BoxFit.contain,
+                            // width: MediaQuery.of(context).size.width * 0.2,
+                            height: 60,
+                          ),
                         ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              '(주)옵티로',
-                              style: boldTextStyle2,
-                            ),
-                            Text(
-                              '인천광역시 연수구 송도미래로 30 스마트밸리 D동',
-                              style: thinSmallTextStyle,
-                            ),
-                            Text(
-                              'H : www.optilo.net  T : 070-5143-8585',
-                              style: thinSmallTextStyle,
-                            ),
-                          ],
-                        )
+                        Expanded(
+                          flex: 8,
+                          child: Row(
+                              mainAxisAlignment: MainAxisAlignment.start,
+                              children: [
+                                Image(
+                                  image: AssetImage('images/logos.png'),
+                                  fit: BoxFit.contain,
+                                  width:
+                                      MediaQuery.of(context).size.width * 0.4,
+                                  // height: MediaQuery.of(context).size.width * 0.1,
+                                ),
+                              ]),
+                        ),
+                        Expanded(
+                          flex: 4,
+                          child: SizedBox(),
+                        ),
                       ],
-                    )) //리스트 출력
-                    ),
-              ],
-            ),
-          ),
-        ));
+                    )),
+                  ],
+                )),
+            body: WillPopScope(
+              onWillPop: () {
+                return Future(() => false);
+              },
+              // <- Scaffold body만 감싼다.
+              child: Container(
+                width: MediaQuery.of(context).size.width,
+                decoration: BoxDecoration(
+                  color: Color.fromRGBO(240, 240, 240, 1),
+                  boxShadow: [customeBoxShadow()],
+                  //color: Color.fromRGBO(81, 97, 130, 1),
+                ),
+                child: Column(
+                  children: <Widget>[
+                    Expanded(
+                        flex: 2,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            Text(deviceList.length.toString() + '개 스캔 중   ',
+                                style: lastUpdateTextStyle(context)),
+                          ],
+                        )),
+                    Expanded(
+                        flex: 40,
+                        child: Container(
+                            margin: EdgeInsets.only(
+                                top: MediaQuery.of(context).size.width * 0.035),
+                            width: MediaQuery.of(context).size.width * 0.98,
+                            // height:
+                            //     MediaQuery.of(context).size.width * 0.45,
+
+                            child: list()) //리스트 출력
+                        ),
+                    Expanded(
+                        flex: 5,
+                        child: Container(
+                            color: Color.fromRGBO(200, 200, 200, 1),
+                            // padding: EdgeInsets.only(
+                            //   bottom: MediaQuery.of(context).size.width * 0.015,
+                            // ),
+                            margin: EdgeInsets.only(
+                              top: MediaQuery.of(context).size.width * 0.015,
+                              // bottom: MediaQuery.of(context).size.width * 0.015,
+                            ),
+                            // bottom: MediaQuery.of(context).size.width * 0.035),
+                            width: MediaQuery.of(context).size.width * 0.97,
+                            // height:
+                            //     MediaQuery.of(context).size.width * 0.45,
+
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Text(
+                                  resultText,
+                                  style: boldTextStyle,
+                                ),
+                              ],
+                            )) //리스트 출력
+                        ),
+                    Expanded(
+                        flex: 4,
+                        child: Container(
+                            // margin: EdgeInsets.only(
+                            //   top: MediaQuery.of(context).size.width * 0.015,
+                            //   bottom: MediaQuery.of(context).size.width * 0.01,
+                            // ),
+                            child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Image(
+                              image: AssetImage('images/background3.png'),
+                              fit: BoxFit.contain,
+                              width: MediaQuery.of(context).size.width * 0.12,
+                              // height: MediaQuery.of(context).size.width * 0.1,
+                            ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  '(주)옵티로',
+                                  style: boldTextStyle2,
+                                ),
+                                Text(
+                                  '인천광역시 연수구 송도미래로 30 스마트밸리 D동',
+                                  style: thinSmallTextStyle,
+                                ),
+                                Text(
+                                  'H : www.optilo.net  T : 070-5143-8585',
+                                  style: thinSmallTextStyle,
+                                ),
+                              ],
+                            )
+                          ],
+                        )) //리스트 출력
+                        ),
+                  ],
+                ),
+              ),
+            )));
   }
 
   Widget getbatteryImage(int battery) {
@@ -1132,29 +1165,29 @@ class ScanscreenState extends State<Scanscreen> {
       return Image(
         image: AssetImage('images/battery_100.png'),
         fit: BoxFit.contain,
-        width: MediaQuery.of(context).size.width * 0.1,
-        height: MediaQuery.of(context).size.width * 0.1,
+        width: MediaQuery.of(context).size.width * 0.08,
+        height: MediaQuery.of(context).size.width * 0.08,
       );
     } else if (battery >= 50) {
       return Image(
         image: AssetImage('images/battery_75.png'),
         fit: BoxFit.contain,
-        width: MediaQuery.of(context).size.width * 0.1,
-        height: MediaQuery.of(context).size.width * 0.1,
+        width: MediaQuery.of(context).size.width * 0.08,
+        height: MediaQuery.of(context).size.width * 0.08,
       );
     } else if (battery >= 35) {
       return Image(
         image: AssetImage('images/battery_50.png'),
         fit: BoxFit.contain,
-        width: MediaQuery.of(context).size.width * 0.05,
-        height: MediaQuery.of(context).size.width * 0.05,
+        width: MediaQuery.of(context).size.width * 0.08,
+        height: MediaQuery.of(context).size.width * 0.08,
       );
     } else if (battery >= 15)
       return Image(
         image: AssetImage('images/battery_25.png'),
         fit: BoxFit.contain,
-        width: MediaQuery.of(context).size.width * 0.1,
-        height: MediaQuery.of(context).size.width * 0.1,
+        width: MediaQuery.of(context).size.width * 0.08,
+        height: MediaQuery.of(context).size.width * 0.08,
       );
   }
 
@@ -1175,7 +1208,7 @@ class ScanscreenState extends State<Scanscreen> {
   }
 
   TextStyle redBoldTextStyle = TextStyle(
-    fontSize: 22,
+    fontSize: 18,
     color: Color.fromRGBO(0xE0, 0x71, 0x51, 1),
     fontWeight: FontWeight.w900,
   );
@@ -1185,12 +1218,12 @@ class ScanscreenState extends State<Scanscreen> {
     fontWeight: FontWeight.w800,
   );
   TextStyle boldTextStyle = TextStyle(
-    fontSize: 24,
+    fontSize: 20,
     color: Color.fromRGBO(21, 21, 21, 1),
     fontWeight: FontWeight.w800,
   );
   TextStyle noboldTextStyle = TextStyle(
-    fontSize: 26,
+    fontSize: 20,
     color: Color.fromRGBO(21, 21, 21, 1),
     fontWeight: FontWeight.w700,
   );
