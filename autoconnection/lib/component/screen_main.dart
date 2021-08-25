@@ -58,6 +58,26 @@ class ScanscreenState extends State<Scanscreen> {
   String currentHumi;
   String resultText = '';
 
+  bool isConnectedState() {
+    bool temp = false;
+    int count = 0;
+    for (int i = 0; i < deviceList.length; i++) {
+      if (deviceList[i].connectionState == 'connect' ||
+          deviceList[i].connectionState == 'connecting') {
+        count++;
+        temp = true;
+        // break;
+      }
+    }
+
+    // return temp;
+    if (count > 2) {
+      return true;
+    } else {
+      return false;
+    }
+  }
+
   String strMapper(String input) {
     if (input == 'scan') {
       return '대기 중';
@@ -74,7 +94,6 @@ class ScanscreenState extends State<Scanscreen> {
   @override
   void initState() {
     // _allDeviceTemp = DBHelper().getAllDevices();
-
     super.initState();
     // getCurrentLocation();
     startTimer();
@@ -192,7 +211,7 @@ class ScanscreenState extends State<Scanscreen> {
 
   void _startMonitoringTemperature(Stream<Uint8List> characteristicUpdates,
       Peripheral peripheral, flag) async {
-    monitoringStreamSubscription?.cancel();
+    // monitoringStreamSubscription?.cancel();
 
     monitoringStreamSubscription = characteristicUpdates.listen(
       (notifyResult) async {
@@ -214,7 +233,38 @@ class ScanscreenState extends State<Scanscreen> {
           }
           // 최소 최대 인덱스
           if (index != -1) {
+            int deference = -1;
+            if (deviceList[index].lastUpdateTime == null) {
+              deference = 15000;
+            } else {
+              Duration temps = DateTime.now()
+                  .toLocal()
+                  .difference(deviceList[index].lastUpdateTime);
+
+              if (temps.inMinutes > 15000) {
+                deference = 15000;
+              } else {
+                deference = temps.inMinutes + 10;
+              }
+            }
             Uint8List minmaxStamp = getMinMaxTimestamp(notifyResult);
+
+            int startStamp = threeBytesToint(minmaxStamp.sublist(0, 3));
+            int endStamp = threeBytesToint(minmaxStamp.sublist(3, 6));
+            int tempstamp =
+                threeBytesToint(minmaxStamp.sublist(3, 6)) - deference;
+            if (tempstamp < 0) {
+              // tempstamp += deference;
+              tempstamp = startStamp;
+            }
+
+            final startTest = Util.convertInt2Bytes(tempstamp, Endian.big, 3);
+            Uint8List startIndex = Uint8List.fromList(startTest);
+            // Uint8List startIndex = intToThreeBytes(tempstamp);
+            Uint8List endindex = minmaxStamp.sublist(3, 6);
+            print('Start Index : ' + tempstamp.toString());
+            print('End Index : ' + endStamp.toString());
+
             deviceList[index].logDatas.clear();
             if (peripheral.name == 'T301') {
               var writeCharacteristics = await peripheral.writeCharacteristic(
@@ -223,7 +273,8 @@ class ScanscreenState extends State<Scanscreen> {
                   Uint8List.fromList([0x55, 0xAA, 0x01, 0x05] +
                       deviceList[index].getMacAddress() +
                       [0x04, 0x06] +
-                      minmaxStamp),
+                      startIndex +
+                      endindex),
                   true);
             } else if (peripheral.name == 'T306') {
               var writeCharacteristics = await peripheral.writeCharacteristic(
@@ -232,12 +283,14 @@ class ScanscreenState extends State<Scanscreen> {
                   Uint8List.fromList([0x55, 0xAA, 0x01, 0x06] +
                       deviceList[index].getMacAddress() +
                       [0x04, 0x06] +
-                      minmaxStamp),
+                      startIndex +
+                      endindex),
                   true);
             }
           }
         }
         if (notifyResult[10] == 0x05) {
+          // print(notifyResult.toString());
           int index = -1;
           for (var i = 0; i < deviceList.length; i++) {
             if (deviceList[i].peripheral.identifier == peripheral.identifier) {
@@ -320,6 +373,7 @@ class ScanscreenState extends State<Scanscreen> {
                   '] ' +
                   sendCount.toString() +
                   ' 개(분) 전송 완료';
+              currentState = 'end';
             });
           } else {
             setState(() {
@@ -340,6 +394,7 @@ class ScanscreenState extends State<Scanscreen> {
               break;
             }
           }
+
           if (index != -1) {
             setState(() {
               deviceList[index].connectionState = 'scan';
@@ -533,9 +588,14 @@ class ScanscreenState extends State<Scanscreen> {
                   }
                 }
                 if (index != -1) {
-                  connect(index, 0);
+                  print('여기 오냐 ?');
+                  // connect(index, 0);
+                  if (!isConnectedState()) {
+                    connect(index, 0);
+                  }
                 }
               }
+
               // BleDeviceItem currentItem = new BleDeviceItem(
               //     name,
               //     scanResult.rssi,
@@ -577,9 +637,23 @@ class ScanscreenState extends State<Scanscreen> {
                         'scan');
                     print(currentItem.peripheral.identifier);
                     print('인 !');
-                    deviceList.add(currentItem);
-
-                    connect(deviceList.length - 1, 0);
+                    setState(() {
+                      deviceList.add(currentItem);
+                    });
+                    int index = -1;
+                    for (var i = 0; i < deviceList.length; i++) {
+                      if (deviceList[i].peripheral.identifier ==
+                          currentItem.peripheral.identifier) {
+                        index = i;
+                        break;
+                      }
+                    }
+                    if (index != -1) {
+                      if (!isConnectedState()) {
+                        connect(index, 0);
+                      }
+                    }
+                    // connect(deviceList.length - 1, 0);
                   }
                 }
               }
@@ -635,15 +709,16 @@ class ScanscreenState extends State<Scanscreen> {
   //연결 함수
   connect(index, flag) async {
     bool goodConnection = false;
-    // if (_connected) {
-    //   //이미 연결상태면 연결 해제후 종료
-    //   print('mmmmmmm 여기냐 설마 ?? mmmmmmmmm');
-    //   await _curPeripheral?.disconnectOrCancelConnection();
-    //   setState(() {
-    //     deviceList[index].connectionState = 'scan';
-    //   });
-    //   return false;
-    // }
+    if (currentState == 'connected') {
+      return;
+      // //이미 연결상태면 연결 해제후 종료
+      // print('mmmmmmm 여기냐 설마 ?? mmmmmmmmm');
+      // await _curPeripheral?.disconnectOrCancelConnection();
+      // setState(() {
+      //   deviceList[index].connectionState = 'scan';
+      // });
+      // return false;
+    }
 
     //선택한 장치의 peripheral 값을 가져온다.
     Peripheral peripheral = deviceList[index].peripheral;
@@ -700,7 +775,22 @@ class ScanscreenState extends State<Scanscreen> {
             _curPeripheral = peripheral;
             // getCurrentLocation();
             //peripheral.
-            deviceList[index].connectionState = 'connect';
+            int tempIndex = -1;
+            for (int i = 0; i < this.deviceList.length; i++) {
+              if (this.deviceList[i].peripheral.identifier ==
+                  peripheral.identifier) {
+                tempIndex = i;
+                break;
+              }
+            }
+            if (tempIndex != -1) {
+              //FIXME: 여기 setState 문제가 있을 수 있네??
+              setState(() {
+                currentState = 'connect';
+                deviceList[tempIndex].connectionState = 'connect';
+              });
+            }
+
             setBLEState('연결 완료');
 
             // startRoutine(index);
@@ -729,25 +819,53 @@ class ScanscreenState extends State<Scanscreen> {
           break;
         case PeripheralConnectionState.connecting:
           {
-            deviceList[index].connectionState = 'connecting';
+            // deviceList[index].connectionState = 'connecting';
 
             // showMyDialog_Connecting(context);
 
             print('연결중입니당!');
+            int tempIndex = -1;
+            for (int i = 0; i < this.deviceList.length; i++) {
+              if (this.deviceList[i].peripheral.identifier ==
+                  peripheral.identifier) {
+                tempIndex = i;
+                break;
+              }
+            }
+            if (tempIndex != -1) {
+              //FIXME: 여기 setState 문제가 있을 수 있네??
+              setState(() {
+                deviceList[tempIndex].connectionState = 'connecting';
+              });
+            }
             currentState = 'connecting';
             setBLEState('<연결 중>');
           } //연결중
           break;
         case PeripheralConnectionState.disconnected:
           {
-            // if (currentState == 'connecting')
+            currentState = 'disconnected';
             //  showMyDialog_Disconnect(context);
             //해제됨
             _connected = false;
             print("${peripheral.name} has DISCONNECTED");
             //TODO: 일단 주석 !
             // _stopMonitoringTemperature();
-            deviceList[index].connectionState = 'scan';
+            int tempIndex = -1;
+            for (int i = 0; i < this.deviceList.length; i++) {
+              if (this.deviceList[i].peripheral.identifier ==
+                  peripheral.identifier) {
+                tempIndex = i;
+                break;
+              }
+            }
+            if (tempIndex != -1) {
+              //FIXME: 여기 setState 문제가 있을 수 있네??
+              setState(() {
+                deviceList[tempIndex].connectionState = 'scan';
+              });
+            }
+
             setBLEState('<연결 종료>');
 
             print('여긴 오냐');
@@ -851,6 +969,7 @@ class ScanscreenState extends State<Scanscreen> {
         padding: const EdgeInsets.all(8),
         itemCount: deviceList.length,
         itemBuilder: (BuildContext context, int index) {
+          // print(deviceList[index].getserialNumber());
           return Container(
             decoration: BoxDecoration(
                 color: deviceList[index].lastUpdateTime == null ||
@@ -1182,13 +1301,14 @@ class ScanscreenState extends State<Scanscreen> {
         width: MediaQuery.of(context).size.width * 0.08,
         height: MediaQuery.of(context).size.width * 0.08,
       );
-    } else if (battery >= 15)
+    } else {
       return Image(
         image: AssetImage('images/battery_25.png'),
         fit: BoxFit.contain,
         width: MediaQuery.of(context).size.width * 0.08,
         height: MediaQuery.of(context).size.width * 0.08,
       );
+    }
   }
 
   TextStyle lastUpdateTextStyle(BuildContext context) {
@@ -1539,4 +1659,9 @@ getLogTemperature(Uint8List fetchData) {
       ByteData.sublistView(fetchData.sublist(16, 18)).getInt16(0, Endian.big);
 
   return tmp / 100;
+}
+
+threeBytesToint(Uint8List temp) {
+  int r = ((temp[0] & 0xF) << 16) | ((temp[1] & 0xFF) << 8) | (temp[2] & 0xFF);
+  return r;
 }
