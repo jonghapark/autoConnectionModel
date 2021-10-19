@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter_ble_lib/flutter_ble_lib.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:autoconnection/models/model_logdata.dart';
+import 'package:autoconnection/models/model_userDevice.dart';
 import '../models/model_bleDevice.dart';
 import 'dart:typed_data';
 import 'dart:convert';
@@ -51,12 +52,16 @@ class ScanscreenState extends State<Scanscreen> {
   String firstImagePath = '';
   String secondImagePath = '';
   Future<List<DeviceInfo>> _allDeviceTemp;
+  UserDeviceList userList;
 
   // Future<List<DateTime>> allDatetime;
 
   String currentTemp;
   String currentHumi;
   String resultText = '';
+  String errorResult = '';
+  String beforePhoneNumber = '';
+  bool beforeInit = true;
 
   bool isConnectedState() {
     bool temp = false;
@@ -97,11 +102,12 @@ class ScanscreenState extends State<Scanscreen> {
     super.initState();
     // getCurrentLocation();
     startTimer();
+    _textFieldController = TextEditingController(text: '');
     Wakelock.enable();
     currentDeviceName = '';
     currentTemp = '-';
     currentHumi = '-';
-    init();
+    // init();
   }
 
   @override
@@ -127,11 +133,11 @@ class ScanscreenState extends State<Scanscreen> {
       List<LogData> list, String devicename, int battery) async {
     // var client = http.Client();
     // print(socket.port);
-    Socket socket = await Socket.connect('175.126.232.236', 9981);
+    Socket socket = await Socket.connect('175.126.232.236', 9983);
     print('port Number');
     print(socket.port);
     if (socket != null) {
-      for (int i = 0; i < list.length; i += 5) {
+      for (int i = 0; i < list.length; i += 10) {
         String body = '';
         body += devicename +
             '|0|' +
@@ -235,14 +241,14 @@ class ScanscreenState extends State<Scanscreen> {
           if (index != -1) {
             int deference = -1;
             if (deviceList[index].lastUpdateTime == null) {
-              deference = 15000;
+              deference = 28800;
             } else {
               Duration temps = DateTime.now()
                   .toLocal()
                   .difference(deviceList[index].lastUpdateTime);
 
-              if (temps.inMinutes > 15000) {
-                deference = 15000;
+              if (temps.inMinutes > 28800) {
+                deference = 28800;
               } else {
                 deference = temps.inMinutes + 10;
               }
@@ -356,10 +362,10 @@ class ScanscreenState extends State<Scanscreen> {
             // 18 -> 4
             // 0 5 10 15 20
             int sendCount = 0;
-            if (deviceList[index].logDatas.length % 5 == 0) {
-              sendCount = deviceList[index].logDatas.length ~/ 5;
+            if (deviceList[index].logDatas.length % 10 == 0) {
+              sendCount = deviceList[index].logDatas.length ~/ 10;
             } else {
-              sendCount = (deviceList[index].logDatas.length ~/ 5) + 1;
+              sendCount = (deviceList[index].logDatas.length ~/ 10) + 1;
             }
 
             print(deviceList[index].getserialNumber() +
@@ -635,22 +641,34 @@ class ScanscreenState extends State<Scanscreen> {
                         scanResult.peripheral,
                         scanResult.advertisementData,
                         'scan');
-                    print(currentItem.peripheral.identifier);
-                    print('인 !');
-                    setState(() {
-                      deviceList.add(currentItem);
-                    });
-                    int index = -1;
-                    for (var i = 0; i < deviceList.length; i++) {
-                      if (deviceList[i].peripheral.identifier ==
-                          currentItem.peripheral.identifier) {
-                        index = i;
+                    bool isExist = false;
+                    for (int i = 0; i < userList.userDevices.length; i++) {
+                      if (currentItem.getserialNumber() ==
+                          userList.userDevices[i].deviceNumber.substring(
+                              userList.userDevices[i].deviceNumber.length - 6,
+                              userList.userDevices[i].deviceNumber.length)) {
+                        isExist = true;
                         break;
                       }
                     }
-                    if (index != -1) {
-                      if (!isConnectedState()) {
-                        connect(index, 0);
+                    if (isExist == true) {
+                      print(currentItem.peripheral.identifier);
+                      print('인 !');
+                      setState(() {
+                        deviceList.add(currentItem);
+                      });
+                      int index = -1;
+                      for (var i = 0; i < deviceList.length; i++) {
+                        if (deviceList[i].peripheral.identifier ==
+                            currentItem.peripheral.identifier) {
+                          index = i;
+                          break;
+                        }
+                      }
+                      if (index != -1) {
+                        if (!isConnectedState()) {
+                          connect(index, 0);
+                        }
                       }
                     }
                     // connect(deviceList.length - 1, 0);
@@ -935,6 +953,132 @@ class ScanscreenState extends State<Scanscreen> {
     });
   }
 
+  getPhoneNumber() {
+    return Container(
+        decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [customeBoxShadow()],
+            borderRadius: BorderRadius.all(Radius.circular(5))),
+        height: MediaQuery.of(context).size.height * 0.5,
+        width: MediaQuery.of(context).size.width * 0.8,
+        child: Column(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Column(
+                children: [
+                  Text('번호 입력\n', style: boldTextStyle3),
+                  TextField(
+                    controller: _textFieldController,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(),
+                      labelText: '전화번호 ex) 010xxxxxxxx',
+                    ),
+                  ),
+                  InkWell(
+                    onTap: () async {
+                      String temp = '';
+                      // print(_textFieldController.text);
+                      // print(temp.toString());
+                      if (_textFieldController.text == '' ||
+                          _textFieldController.text.length != 11) {
+                        setState(() {
+                          errorResult = '전화번호를 확인해주세요. ';
+                        });
+                      } else {
+                        await getDeviceList();
+                      }
+                    },
+                    child: Container(
+                      decoration: BoxDecoration(
+                          color: Colors.black,
+                          boxShadow: [customeBoxShadow()],
+                          borderRadius: BorderRadius.all(Radius.circular(5))),
+                      width: MediaQuery.of(context).size.width * 0.98,
+                      padding: EdgeInsets.all(16),
+                      margin: EdgeInsets.only(top: 8, bottom: 8),
+                      alignment: Alignment.center,
+                      child: Text(
+                        '확인',
+                        style: TextStyle(
+                          fontSize: 24,
+                          color: Color.fromRGBO(255, 255, 255, 1),
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Text(errorResult),
+                ],
+              ),
+            ]));
+  }
+
+  getDeviceList() async {
+    String temp = this._textFieldController.text;
+    String phoneNumber = '';
+    phoneNumber += temp.substring(0, 3);
+    phoneNumber += '-';
+    phoneNumber += temp.substring(3, 7);
+    phoneNumber += '-';
+    phoneNumber += temp.substring(7, 11);
+
+    try {
+      var client = http.Client();
+      var uri = Uri.parse('http://175.126.232.236:8986/bb');
+      var uriResponse = await client.post(uri,
+          headers: {"Content-Type": "application/x-www-form-urlencoded"},
+          body: {"ZONE_NM": phoneNumber});
+      print('뭐라고');
+      print(uriResponse.body.toString().substring(30));
+      String result = uriResponse.body.toString().substring(30);
+      print(json.decode(result));
+      UserDeviceList list = UserDeviceList.fromJson(json.decode(result));
+      print('end ! ');
+      print('HTTP Result Code : ' + uriResponse.statusCode.toString());
+      if (uriResponse.statusCode == 200) {
+        setState(() {
+          userList = list;
+          // print(userList.userDevices[0].destName);
+          // print(userList.userDevices[1].destName);
+          // print(userList.userDevices[1].deviceName);
+          // print(userList.userDevices[1].deviceNumber);
+
+          //TODO: 더미 데이터 삭제 !
+          // userList.userDevices.add(new UserDevice(
+          //     deviceNumber: 'TESTSENSOR_EC5906',
+          //     deviceName: 'GC123',
+          //     destName: '굿 병원_3'));
+          // userList.userDevices.add(new UserDevice(
+          //     deviceNumber: 'TESTSENSOR_677199',
+          //     deviceName: 'GC123',
+          //     destName: 'Good 병굿_2'));
+          // userList.userDevices.add(new UserDevice(
+          //     deviceNumber: 'TESTSENSOR_0C5682',
+          //     deviceName: 'GC555',
+          //     destName: '굿 병원_1'));
+          beforeInit = false;
+        });
+        if (beforePhoneNumber == '') {
+          startTimer();
+          init();
+          beforePhoneNumber = phoneNumber;
+        }
+      } else {
+        setState(() {
+          errorResult = '다시 시도해주세요';
+        });
+
+        print('다시 시도해봐 !');
+      }
+    } catch (e) {
+      print(e);
+      setState(() {
+        errorResult = '번호와 일치하는 정보가 없습니다.';
+      });
+    }
+  }
+
   //장치 화면에 출력하는 위젯 함수
   list() {
     if (deviceList?.isEmpty == true) {
@@ -1063,26 +1207,26 @@ class ScanscreenState extends State<Scanscreen> {
                                     ),
                                   ],
                                 ),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Image(
-                                      image:
-                                          AssetImage('images/ic_humidity.png'),
-                                      fit: BoxFit.contain,
-                                      width: MediaQuery.of(context).size.width *
-                                          0.05,
-                                      // height: MediaQuery.of(context).size.width * 0.1,
-                                    ),
-                                    Text(
-                                      deviceList[index]
-                                              .getHumidity()
-                                              .toString() +
-                                          '% ',
-                                      style: noboldTextStyle,
-                                    ),
-                                  ],
-                                ),
+                                // Row(
+                                //   mainAxisAlignment: MainAxisAlignment.center,
+                                //   children: [
+                                //     Image(
+                                //       image:
+                                //           AssetImage('images/ic_humidity.png'),
+                                //       fit: BoxFit.contain,
+                                //       width: MediaQuery.of(context).size.width *
+                                //           0.05,
+                                //       // height: MediaQuery.of(context).size.width * 0.1,
+                                //     ),
+                                //     Text(
+                                //       deviceList[index]
+                                //               .getHumidity()
+                                //               .toString() +
+                                //           '% ',
+                                //       style: noboldTextStyle,
+                                //     ),
+                                //   ],
+                                // ),
                                 Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
@@ -1206,7 +1350,9 @@ class ScanscreenState extends State<Scanscreen> {
                             // height:
                             //     MediaQuery.of(context).size.width * 0.45,
 
-                            child: list()) //리스트 출력
+                            child: beforeInit == false
+                                ? list()
+                                : getPhoneNumber()) // //리스트 출력
                         ),
                     Expanded(
                         flex: 5,
@@ -1334,6 +1480,11 @@ class ScanscreenState extends State<Scanscreen> {
   );
   TextStyle boldTextStyle2 = TextStyle(
     fontSize: 18,
+    color: Color.fromRGBO(21, 21, 21, 1),
+    fontWeight: FontWeight.w800,
+  );
+  TextStyle boldTextStyle3 = TextStyle(
+    fontSize: 30,
     color: Color.fromRGBO(21, 21, 21, 1),
     fontWeight: FontWeight.w800,
   );
