@@ -6,6 +6,7 @@ import 'package:flutter_ble_lib/flutter_ble_lib.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:autoconnection/models/model_logdata.dart';
 import 'package:autoconnection/models/model_userDevice.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 import '../models/model_bleDevice.dart';
 import 'dart:typed_data';
 import 'dart:convert';
@@ -15,6 +16,7 @@ import 'package:intl/intl.dart';
 import 'package:flutter/services.dart';
 import '../utils/util.dart';
 import 'package:wakelock/wakelock.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class Scanscreen extends StatefulWidget {
   @override
@@ -22,6 +24,9 @@ class Scanscreen extends StatefulWidget {
 }
 
 class ScanscreenState extends State<Scanscreen> {
+  //FIXME: Current VERSION
+  final String currentVersion = "0.1.4";
+
   BleManager _bleManager = BleManager();
   bool _isScanning = false;
   bool _connected = false;
@@ -44,6 +49,8 @@ class ScanscreenState extends State<Scanscreen> {
   Timer _timer;
   int _start = 0;
   bool isStart = false;
+  bool isLatest = true;
+  String downloadLink = '';
   Map<String, String> idMapper;
   // double width;
   TextEditingController _textFieldController;
@@ -83,6 +90,28 @@ class ScanscreenState extends State<Scanscreen> {
     }
   }
 
+  Future<bool> checkCurrentAppVersion() async {
+    var client = http.Client();
+    var uri = Uri.parse('http://geo.thermocert.net:7001/version_checker');
+    var uriResponse = await client.post(uri, body: {"app_name": 'GEO_J'});
+    print(uriResponse.body);
+    List<dynamic> list = jsonDecode(uriResponse.body.substring(30));
+    print(list[0]['version']);
+    if (list[0]['version'] != currentVersion) {
+      setState(() {
+        downloadLink = list[0]['download_link'];
+        isLatest = false;
+        resultText = '최신 버전으로 업데이트가 필요합니다.';
+      });
+      if (!await launch(downloadLink)) throw 'Could not launch $downloadLink';
+    } else {
+      setState(() {
+        isLatest = true;
+      });
+    }
+    return true;
+  }
+
   String strMapper(String input) {
     if (input == 'scan') {
       return '대기 중';
@@ -100,6 +129,8 @@ class ScanscreenState extends State<Scanscreen> {
   void initState() {
     // _allDeviceTemp = DBHelper().getAllDevices();
     super.initState();
+    checkCurrentAppVersion();
+    setState(() {});
     // getCurrentLocation();
     startTimer();
     _textFieldController = TextEditingController(text: '');
@@ -165,6 +196,7 @@ class ScanscreenState extends State<Scanscreen> {
     // try {
     //   for (int i = 0; i < list.length; i++) {
     //     print('$i send');
+    // var client = http.Client();
     //     var uriResponse = await client
     //         .post('http://175.126.232.236/_API/saveData.php', body: {
     //       "isRegularData": "true",
@@ -954,64 +986,80 @@ class ScanscreenState extends State<Scanscreen> {
   }
 
   getPhoneNumber() {
-    return Container(
+    if (isLatest == true) {
+      return Container(
+          decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [customeBoxShadow()],
+              borderRadius: BorderRadius.all(Radius.circular(5))),
+          height: MediaQuery.of(context).size.height * 0.5,
+          width: MediaQuery.of(context).size.width * 0.8,
+          child: Column(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Column(
+                  children: [
+                    Text('번호 입력\n', style: boldTextStyle3),
+                    TextField(
+                      controller: _textFieldController,
+                      decoration: InputDecoration(
+                        border: OutlineInputBorder(),
+                        labelText: '전화번호 ex) 010xxxxxxxx',
+                      ),
+                    ),
+                    InkWell(
+                      onTap: () async {
+                        String temp = '';
+                        // print(_textFieldController.text);
+                        // print(temp.toString());
+                        if (_textFieldController.text == '' ||
+                            _textFieldController.text.length != 11) {
+                          setState(() {
+                            errorResult = '전화번호를 확인해주세요. ';
+                          });
+                        } else {
+                          await getDeviceList();
+                        }
+                      },
+                      child: Container(
+                        decoration: BoxDecoration(
+                            color: Colors.black,
+                            boxShadow: [customeBoxShadow()],
+                            borderRadius: BorderRadius.all(Radius.circular(5))),
+                        width: MediaQuery.of(context).size.width * 0.98,
+                        padding: EdgeInsets.all(16),
+                        margin: EdgeInsets.only(top: 8, bottom: 8),
+                        alignment: Alignment.center,
+                        child: Text(
+                          '확인',
+                          style: TextStyle(
+                            fontSize: 24,
+                            color: Color.fromRGBO(255, 255, 255, 1),
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ),
+                    Text(errorResult),
+                  ],
+                ),
+              ]));
+    } else {
+      return Container(
         decoration: BoxDecoration(
             color: Colors.white,
             boxShadow: [customeBoxShadow()],
             borderRadius: BorderRadius.all(Radius.circular(5))),
         height: MediaQuery.of(context).size.height * 0.5,
         width: MediaQuery.of(context).size.width * 0.8,
-        child: Column(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Column(
-                children: [
-                  Text('번호 입력\n', style: boldTextStyle3),
-                  TextField(
-                    controller: _textFieldController,
-                    decoration: InputDecoration(
-                      border: OutlineInputBorder(),
-                      labelText: '전화번호 ex) 010xxxxxxxx',
-                    ),
-                  ),
-                  InkWell(
-                    onTap: () async {
-                      String temp = '';
-                      // print(_textFieldController.text);
-                      // print(temp.toString());
-                      if (_textFieldController.text == '' ||
-                          _textFieldController.text.length != 11) {
-                        setState(() {
-                          errorResult = '전화번호를 확인해주세요. ';
-                        });
-                      } else {
-                        await getDeviceList();
-                      }
-                    },
-                    child: Container(
-                      decoration: BoxDecoration(
-                          color: Colors.black,
-                          boxShadow: [customeBoxShadow()],
-                          borderRadius: BorderRadius.all(Radius.circular(5))),
-                      width: MediaQuery.of(context).size.width * 0.98,
-                      padding: EdgeInsets.all(16),
-                      margin: EdgeInsets.only(top: 8, bottom: 8),
-                      alignment: Alignment.center,
-                      child: Text(
-                        '확인',
-                        style: TextStyle(
-                          fontSize: 24,
-                          color: Color.fromRGBO(255, 255, 255, 1),
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                  ),
-                  Text(errorResult),
-                ],
-              ),
-            ]));
+        child: WebView(
+          initialUrl: downloadLink,
+          javascriptMode: JavascriptMode.unrestricted,
+          initialMediaPlaybackPolicy: AutoMediaPlaybackPolicy.always_allow,
+        ),
+      );
+    }
   }
 
   getDeviceList() async {
@@ -1282,40 +1330,40 @@ class ScanscreenState extends State<Scanscreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     AppBar(
-                        // backgroundColor: Color.fromARGB(22, 27, 32, 1),
+                        backgroundColor: Color.fromRGBO(0x4C, 0xA5, 0xC7, 1),
                         title: Row(
-                      mainAxisAlignment: MainAxisAlignment.start,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Expanded(
-                          flex: 5,
-                          child: Image(
-                            image: AssetImage('images/geo_young.png'),
-                            fit: BoxFit.contain,
-                            // width: MediaQuery.of(context).size.width * 0.2,
-                            height: 60,
-                          ),
-                        ),
-                        Expanded(
-                          flex: 8,
-                          child: Row(
-                              mainAxisAlignment: MainAxisAlignment.start,
-                              children: [
-                                Image(
-                                  image: AssetImage('images/logos.png'),
-                                  fit: BoxFit.contain,
-                                  width:
-                                      MediaQuery.of(context).size.width * 0.4,
-                                  // height: MediaQuery.of(context).size.width * 0.1,
-                                ),
-                              ]),
-                        ),
-                        Expanded(
-                          flex: 4,
-                          child: SizedBox(),
-                        ),
-                      ],
-                    )),
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              flex: 5,
+                              child: Image(
+                                image: AssetImage('images/geo_young.png'),
+                                fit: BoxFit.contain,
+                                // width: MediaQuery.of(context).size.width * 0.2,
+                                height: 60,
+                              ),
+                            ),
+                            Expanded(
+                              flex: 8,
+                              child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.start,
+                                  children: [
+                                    Image(
+                                      image: AssetImage('images/logos.png'),
+                                      fit: BoxFit.contain,
+                                      width: MediaQuery.of(context).size.width *
+                                          0.4,
+                                      // height: MediaQuery.of(context).size.width * 0.1,
+                                    ),
+                                  ]),
+                            ),
+                            Expanded(
+                              flex: 4,
+                              child: SizedBox(),
+                            ),
+                          ],
+                        )),
                   ],
                 )),
             body: WillPopScope(

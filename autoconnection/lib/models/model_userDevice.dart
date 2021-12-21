@@ -1,3 +1,19 @@
+class VersionChecker {
+  String appName = '';
+  String version = '';
+  String downloadLink = '';
+  VersionChecker({this.appName, this.downloadLink, this.version});
+  VersionChecker.fromJson(Map<String, dynamic> json) {
+    appName = json['app_name'];
+    version = json['version'];
+    downloadLink = json['download_link'];
+    // status = int.parse(json['tra_transport_state']);
+    // print(deviceName);
+    // print(destName);
+    // print(status.toString());
+  }
+}
+
 class UserDevice {
   String deviceName = '';
   String destName = '';
