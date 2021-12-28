@@ -25,7 +25,7 @@ class Scanscreen extends StatefulWidget {
 
 class ScanscreenState extends State<Scanscreen> {
   //FIXME: Current VERSION
-  final String currentVersion = "0.1.4";
+  final String currentVersion = "0.1.5";
 
   BleManager _bleManager = BleManager();
   bool _isScanning = false;
@@ -90,6 +90,7 @@ class ScanscreenState extends State<Scanscreen> {
     }
   }
 
+  //FIXME: Current VERSION
   Future<bool> checkCurrentAppVersion() async {
     var client = http.Client();
     var uri = Uri.parse('http://geo.thermocert.net:7001/version_checker');
@@ -111,6 +112,7 @@ class ScanscreenState extends State<Scanscreen> {
     }
     return true;
   }
+  //
 
   String strMapper(String input) {
     if (input == 'scan') {
@@ -129,6 +131,8 @@ class ScanscreenState extends State<Scanscreen> {
   void initState() {
     // _allDeviceTemp = DBHelper().getAllDevices();
     super.initState();
+
+    //FIXME: Current VERSION
     checkCurrentAppVersion();
     setState(() {});
     // getCurrentLocation();
