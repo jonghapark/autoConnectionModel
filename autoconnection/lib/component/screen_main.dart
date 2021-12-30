@@ -25,7 +25,7 @@ class Scanscreen extends StatefulWidget {
 
 class ScanscreenState extends State<Scanscreen> {
   //FIXME: Current VERSION
-  final String currentVersion = "0.1.5";
+  final String currentVersion = "0.1.6";
 
   BleManager _bleManager = BleManager();
   bool _isScanning = false;
@@ -94,7 +94,7 @@ class ScanscreenState extends State<Scanscreen> {
   Future<bool> checkCurrentAppVersion() async {
     var client = http.Client();
     var uri = Uri.parse('http://geo.thermocert.net:7001/version_checker');
-    var uriResponse = await client.post(uri, body: {"app_name": 'GEO_J'});
+    var uriResponse = await client.post(uri, body: {"app_name": 'GEO_T'});
     print(uriResponse.body);
     List<dynamic> list = jsonDecode(uriResponse.body.substring(30));
     print(list[0]['version']);
